@@ -1,6 +1,8 @@
 spring:
   profiles:
     active: native
+  config:
+    import: "optional:file:../.env[.properties]" # ADD THIS LINE
   cloud:
     config:
       server:
@@ -8,7 +10,7 @@ spring:
           search-locations: classpath:/shared
   security:
     user:
-      name: user # Explicitly set a username
+      name: user
       password: ${CONFIG_SERVICE_PASSWORD}
 
 server:

@@ -1,34 +1,43 @@
 package com.piggymetrics.notification.config;
 
-import feign.RequestInterceptor;
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.cloud.security.oauth2.client.feign.OAuth2FeignRequestInterceptor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.oauth2.client.DefaultOAuth2ClientContext;
-import org.springframework.security.oauth2.client.OAuth2RestTemplate;
-import org.springframework.security.oauth2.client.token.grant.client.ClientCredentialsResourceDetails;
-import org.springframework.security.oauth2.config.annotation.web.configuration.EnableResourceServer;
-import org.springframework.security.oauth2.config.annotation.web.configuration.ResourceServerConfigurerAdapter;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientProviderBuilder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 
-/**
- * @author cdov
- */
 @Configuration
-@EnableResourceServer
-public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
+public class ResourceServerConfig {
+
     @Bean
-    @ConfigurationProperties(prefix = "security.oauth2.client")
-    public ClientCredentialsResourceDetails clientCredentialsResourceDetails() {
-        return new ClientCredentialsResourceDetails();
-    }
-    @Bean
-    public RequestInterceptor oauth2FeignRequestInterceptor(){
-        return new OAuth2FeignRequestInterceptor(new DefaultOAuth2ClientContext(), clientCredentialsResourceDetails());
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/", "/health", "/info").permitAll()
+                .anyRequest().authenticated()
+            )
+            .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {}));
+        return http.build();
     }
 
     @Bean
-    public OAuth2RestTemplate clientCredentialsRestTemplate() {
-        return new OAuth2RestTemplate(clientCredentialsResourceDetails());
+    public OAuth2AuthorizedClientManager authorizedClientManager(
+            ClientRegistrationRepository clientRegistrationRepository,
+            OAuth2AuthorizedClientRepository authorizedClientRepository) {
+
+        var authorizedClientProvider = OAuth2AuthorizedClientProviderBuilder.builder()
+                .clientCredentials()
+                .build();
+
+        var authorizedClientManager = new DefaultOAuth2AuthorizedClientManager(
+                clientRegistrationRepository, authorizedClientRepository);
+        authorizedClientManager.setAuthorizedClientProvider(authorizedClientProvider);
+
+        return authorizedClientManager;
     }
 }

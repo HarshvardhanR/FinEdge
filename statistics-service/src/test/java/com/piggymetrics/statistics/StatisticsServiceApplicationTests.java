@@ -1,16 +1,15 @@
 package com.piggymetrics.statistics;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test; // Updated to JUnit 5
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 
-@RunWith(SpringRunner.class)
 @SpringBootTest
-public class StatisticsServiceApplicationTests {
+class StatisticsServiceApplicationTests { // Class doesn't need to be public in JUnit 5
 
-	@Test
-	public void contextLoads() {
-	}
+    @Test
+    void contextLoads() {
+        // This confirms the Spring application context starts without errors.
+        // It's the most basic test, but vital for catching configuration issues.
+    }
 
 }
