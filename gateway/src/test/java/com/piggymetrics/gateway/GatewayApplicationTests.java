@@ -1,21 +1,17 @@
 package com.piggymetrics.gateway;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test; // Changed import
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest
-public class GatewayApplicationTests {
+@SpringBootTest // @RunWith is gone! It's handled automatically now.
+class GatewayApplicationTests { // 'public' is optional in JUnit 5
 
-	@Test
-	public void contextLoads() {
-	}
+    @Test
+    void contextLoads() {
+    }
 
-	@Test
-	public void fire() {
-
-	}
+    @Test
+    void fire() {
+    }
 
 }

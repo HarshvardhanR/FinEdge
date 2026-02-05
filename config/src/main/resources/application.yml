@@ -1,15 +1,15 @@
 spring:
+  profiles:
+    active: native
   cloud:
     config:
       server:
         native:
           search-locations: classpath:/shared
-  profiles:
-     active: native
   security:
     user:
+      name: user # Explicitly set a username
       password: ${CONFIG_SERVICE_PASSWORD}
 
 server:
   port: 8888
-
