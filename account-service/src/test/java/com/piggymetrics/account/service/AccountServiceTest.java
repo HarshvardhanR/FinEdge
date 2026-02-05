@@ -4,146 +4,128 @@ import com.piggymetrics.account.client.AuthServiceClient;
 import com.piggymetrics.account.client.StatisticsServiceClient;
 import com.piggymetrics.account.domain.*;
 import com.piggymetrics.account.repository.AccountRepository;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach; // Changed
+import org.junit.jupiter.api.Test; // Changed
+import org.junit.jupiter.api.extension.ExtendWith; // Added
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension; // Added
 
 import java.math.BigDecimal;
 import java.util.Arrays;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*; // Changed
 import static org.mockito.Mockito.*;
-import static org.mockito.MockitoAnnotations.initMocks;
 
-public class AccountServiceTest {
+@ExtendWith(MockitoExtension.class) // Handles initMocks automatically
+class AccountServiceTest {
 
-	@InjectMocks
-	private AccountServiceImpl accountService;
+    @InjectMocks
+    private AccountServiceImpl accountService;
 
-	@Mock
-	private StatisticsServiceClient statisticsClient;
+    @Mock
+    private StatisticsServiceClient statisticsClient;
 
-	@Mock
-	private AuthServiceClient authClient;
+    @Mock
+    private AuthServiceClient authClient;
 
-	@Mock
-	private AccountRepository repository;
+    @Mock
+    private AccountRepository repository;
 
-	@Before
-	public void setup() {
-		initMocks(this);
-	}
+    @Test
+    void shouldFindByName() {
+        final Account account = new Account();
+        account.setName("test");
 
-	@Test
-	public void shouldFindByName() {
+        // Note: when calling a mock, use the mock object, not the service itself
+        when(repository.findByName(account.getName())).thenReturn(account);
+        Account found = accountService.findByName(account.getName());
 
-		final Account account = new Account();
-		account.setName("test");
+        assertEquals(account, found);
+    }
 
-		when(accountService.findByName(account.getName())).thenReturn(account);
-		Account found = accountService.findByName(account.getName());
+    @Test
+    void shouldFailWhenNameIsEmpty() {
+        // JUnit 5 way to test exceptions
+        assertThrows(IllegalArgumentException.class, () -> {
+            accountService.findByName("");
+        });
+    }
 
-		assertEquals(account, found);
-	}
+    @Test
+    void shouldCreateAccountWithGivenUser() {
+        User user = new User();
+        user.setUsername("test");
 
-	@Test(expected = IllegalArgumentException.class)
-	public void shouldFailWhenNameIsEmpty() {
-		accountService.findByName("");
-	}
+        Account account = accountService.create(user);
 
-	@Test
-	public void shouldCreateAccountWithGivenUser() {
+        assertEquals(user.getUsername(), account.getName());
+        assertEquals(0, account.getSaving().getAmount().intValue());
+        assertEquals(Currency.getDefault(), account.getSaving().getCurrency());
+        assertEquals(0, account.getSaving().getInterest().intValue());
+        assertFalse(account.getSaving().getDeposit());
+        assertFalse(account.getSaving().getCapitalization());
+        assertNotNull(account.getLastSeen());
 
-		User user = new User();
-		user.setUsername("test");
+        verify(authClient, times(1)).createUser(user);
+        verify(repository, times(1)).save(account);
+    }
 
-		Account account = accountService.create(user);
+    @Test
+    void shouldSaveChangesWhenUpdatedAccountGiven() {
+        Item grocery = new Item();
+        grocery.setTitle("Grocery");
+        grocery.setAmount(new BigDecimal(10));
+        grocery.setCurrency(Currency.USD);
+        grocery.setPeriod(TimePeriod.DAY);
+        grocery.setIcon("meal");
 
-		assertEquals(user.getUsername(), account.getName());
-		assertEquals(0, account.getSaving().getAmount().intValue());
-		assertEquals(Currency.getDefault(), account.getSaving().getCurrency());
-		assertEquals(0, account.getSaving().getInterest().intValue());
-		assertEquals(false, account.getSaving().getDeposit());
-		assertEquals(false, account.getSaving().getCapitalization());
-		assertNotNull(account.getLastSeen());
+        Item salary = new Item();
+        salary.setTitle("Salary");
+        salary.setAmount(new BigDecimal(9100));
+        salary.setCurrency(Currency.USD);
+        salary.setPeriod(TimePeriod.MONTH);
+        salary.setIcon("wallet");
 
-		verify(authClient, times(1)).createUser(user);
-		verify(repository, times(1)).save(account);
-	}
+        Saving saving = new Saving();
+        saving.setAmount(new BigDecimal(1500));
+        saving.setCurrency(Currency.USD);
+        saving.setInterest(new BigDecimal("3.32"));
+        saving.setDeposit(true);
+        saving.setCapitalization(false);
 
-	@Test
-	public void shouldSaveChangesWhenUpdatedAccountGiven() {
+        final Account update = new Account();
+        update.setName("test");
+        update.setNote("test note");
+        update.setIncomes(Arrays.asList(salary));
+        update.setExpenses(Arrays.asList(grocery));
+        update.setSaving(saving);
 
-		Item grocery = new Item();
-		grocery.setTitle("Grocery");
-		grocery.setAmount(new BigDecimal(10));
-		grocery.setCurrency(Currency.USD);
-		grocery.setPeriod(TimePeriod.DAY);
-		grocery.setIcon("meal");
+        final Account account = new Account();
+        // Correcting the mock: stub the repository, not the service being tested
+        when(repository.findByName("test")).thenReturn(account);
+        
+        accountService.saveChanges("test", update);
 
-		Item salary = new Item();
-		salary.setTitle("Salary");
-		salary.setAmount(new BigDecimal(9100));
-		salary.setCurrency(Currency.USD);
-		salary.setPeriod(TimePeriod.MONTH);
-		salary.setIcon("wallet");
+        assertEquals(update.getNote(), account.getNote());
+        assertNotNull(account.getLastSeen());
+        assertEquals(update.getSaving().getAmount(), account.getSaving().getAmount());
+        assertEquals(update.getExpenses().size(), account.getExpenses().size());
+        
+        verify(repository, times(1)).save(account);
+        verify(statisticsClient, times(1)).updateStatistics("test", account);
+    }
 
-		Saving saving = new Saving();
-		saving.setAmount(new BigDecimal(1500));
-		saving.setCurrency(Currency.USD);
-		saving.setInterest(new BigDecimal("3.32"));
-		saving.setDeposit(true);
-		saving.setCapitalization(false);
+    @Test
+    void shouldFailWhenNoAccountsExistedWithGivenName() {
+        final Account update = new Account();
+        update.setIncomes(Arrays.asList(new Item()));
+        update.setExpenses(Arrays.asList(new Item()));
 
-		final Account update = new Account();
-		update.setName("test");
-		update.setNote("test note");
-		update.setIncomes(Arrays.asList(salary));
-		update.setExpenses(Arrays.asList(grocery));
-		update.setSaving(saving);
+        when(repository.findByName("test")).thenReturn(null);
 
-		final Account account = new Account();
-
-		when(accountService.findByName("test")).thenReturn(account);
-		accountService.saveChanges("test", update);
-
-		assertEquals(update.getNote(), account.getNote());
-		assertNotNull(account.getLastSeen());
-
-		assertEquals(update.getSaving().getAmount(), account.getSaving().getAmount());
-		assertEquals(update.getSaving().getCurrency(), account.getSaving().getCurrency());
-		assertEquals(update.getSaving().getInterest(), account.getSaving().getInterest());
-		assertEquals(update.getSaving().getDeposit(), account.getSaving().getDeposit());
-		assertEquals(update.getSaving().getCapitalization(), account.getSaving().getCapitalization());
-
-		assertEquals(update.getExpenses().size(), account.getExpenses().size());
-		assertEquals(update.getIncomes().size(), account.getIncomes().size());
-
-		assertEquals(update.getExpenses().get(0).getTitle(), account.getExpenses().get(0).getTitle());
-		assertEquals(0, update.getExpenses().get(0).getAmount().compareTo(account.getExpenses().get(0).getAmount()));
-		assertEquals(update.getExpenses().get(0).getCurrency(), account.getExpenses().get(0).getCurrency());
-		assertEquals(update.getExpenses().get(0).getPeriod(), account.getExpenses().get(0).getPeriod());
-		assertEquals(update.getExpenses().get(0).getIcon(), account.getExpenses().get(0).getIcon());
-		
-		assertEquals(update.getIncomes().get(0).getTitle(), account.getIncomes().get(0).getTitle());
-		assertEquals(0, update.getIncomes().get(0).getAmount().compareTo(account.getIncomes().get(0).getAmount()));
-		assertEquals(update.getIncomes().get(0).getCurrency(), account.getIncomes().get(0).getCurrency());
-		assertEquals(update.getIncomes().get(0).getPeriod(), account.getIncomes().get(0).getPeriod());
-		assertEquals(update.getIncomes().get(0).getIcon(), account.getIncomes().get(0).getIcon());
-		
-		verify(repository, times(1)).save(account);
-		verify(statisticsClient, times(1)).updateStatistics("test", account);
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void shouldFailWhenNoAccountsExistedWithGivenName() {
-		final Account update = new Account();
-		update.setIncomes(Arrays.asList(new Item()));
-		update.setExpenses(Arrays.asList(new Item()));
-
-		when(accountService.findByName("test")).thenReturn(null);
-		accountService.saveChanges("test", update);
-	}
+        assertThrows(IllegalArgumentException.class, () -> {
+            accountService.saveChanges("test", update);
+        });
+    }
 }

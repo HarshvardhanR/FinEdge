@@ -1,16 +1,13 @@
 package com.piggymetrics.auth;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test; // Changed to JUnit 5
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest
-public class AuthServiceApplicationTests {
+@SpringBootTest // @RunWith(SpringRunner.class) is now redundant and removed
+class AuthServiceApplicationTests { // Removed public
 
-	@Test
-	public void contextLoads() {
-	}
+    @Test
+    void contextLoads() { // Removed public
+    }
 
 }
