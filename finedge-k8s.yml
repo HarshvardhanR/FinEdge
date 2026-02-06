@@ -2,8 +2,11 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: finedge
+
 ---
+
 # 1. DATABASE (MongoDB - Official Image)
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,6 +16,7 @@ spec:
   selector:
     matchLabels:
       app: mongodb
+
   template:
     metadata:
       labels:
@@ -23,32 +27,41 @@ spec:
         image: mongo:4.4
         ports:
         - containerPort: 27017
+
 ---
+
 apiVersion: v1
 kind: Service
 metadata:
   name: account-mongodb
   namespace: finedge
+
 spec:
   selector:
     app: mongodb
   ports:
     - port: 27017
+
 ---
+
 # 2. CONFIG SERVICE
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: config
   namespace: finedge
+
 spec:
   selector:
     matchLabels:
       app: config
+
   template:
     metadata:
       labels:
         app: config
+
     spec:
       containers:
       - name: config
@@ -62,7 +75,9 @@ spec:
             secretKeyRef:
               name: finedge-secrets
               key: CONFIG_SERVICE_PASSWORD
+
 ---
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -73,8 +88,11 @@ spec:
     app: config
   ports:
     - port: 8888
+
 ---
+
 # 3. GATEWAY
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -101,12 +119,15 @@ spec:
             secretKeyRef:
               name: finedge-secrets
               key: CONFIG_SERVICE_PASSWORD
+
 ---
+
 apiVersion: v1
 kind: Service
 metadata:
   name: gateway
   namespace: finedge
+
 spec:
   selector:
     app: gateway
@@ -114,9 +135,12 @@ spec:
     - port: 4000
       targetPort: 4000
       nodePort: 30000
+
   type: NodePort
 ---
+
 # 4. AUTH SERVICE (Crucial Fixes Here)
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -164,7 +188,9 @@ spec:
             secretKeyRef:
               name: finedge-secrets
               key: MONGODB_PASSWORD
+
 ---
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -173,108 +199,221 @@ metadata:
 spec:
   selector:
     app: auth-service
+
   ports:
+
     - port: 5000
+
 ---
+
 # 5. ACCOUNT SERVICE
+
 apiVersion: apps/v1
+
 kind: Deployment
+
 metadata:
+
   name: account-service
+
   namespace: finedge
+
 spec:
+
   selector:
+
     matchLabels:
+
       app: account-service
+
   template:
+
     metadata:
+
       labels:
+
         app: account-service
+
     spec:
+
       containers:
+
       - name: account-service
+
         image: finedge/account-service:latest
+
         imagePullPolicy: IfNotPresent
+
         env:
+
         - name: SPRING_CONFIG_IMPORT
+
           value: "optional:configserver:http://config:8888"
+
         - name: CONFIG_SERVICE_PASSWORD
+
           valueFrom:
+
             secretKeyRef:
+
               name: finedge-secrets
+
               key: CONFIG_SERVICE_PASSWORD
+
         - name: ACCOUNT_SERVICE_PASSWORD
+
           valueFrom:
+
             secretKeyRef:
+
               name: finedge-secrets
+
               key: ACCOUNT_SERVICE_PASSWORD
+
         - name: MONGODB_PASSWORD
+
           valueFrom:
+
             secretKeyRef:
+
               name: finedge-secrets
+
               key: MONGODB_PASSWORD
+
 ---
+
 apiVersion: v1
+
 kind: Service
+
 metadata:
+
   name: account-service
+
   namespace: finedge
+
 spec:
+
   selector:
+
     app: account-service
+
   ports:
-    - port: 6000
+
+    - protocol: TCP
+
+      port: 6000        # Port the Gateway looks for
+
+      targetPort: 8080
+
+
+
 ---
+
 # 6. STATISTICS SERVICE
+
 apiVersion: apps/v1
+
 kind: Deployment
+
 metadata:
+
   name: statistics-service
+
   namespace: finedge
+
 spec:
+
   selector:
+
     matchLabels:
+
       app: statistics-service
+
   template:
+
     metadata:
+
       labels:
+
         app: statistics-service
+
     spec:
+
       containers:
+
       - name: statistics-service
+
         image: finedge/statistics-service:latest
+
         imagePullPolicy: IfNotPresent
+
         env:
+
+        - name: RATES_URL
+
+          value: "https://api.exchangerate-api.com/v4/latest/USD"
+
         - name: SPRING_CONFIG_IMPORT
+
           value: "optional:configserver:http://config:8888"
+
         - name: CONFIG_SERVICE_PASSWORD
+
           valueFrom:
+
             secretKeyRef:
+
               name: finedge-secrets
+
               key: CONFIG_SERVICE_PASSWORD
+
         - name: STATISTICS_SERVICE_PASSWORD
+
           valueFrom:
+
             secretKeyRef:
+
               name: finedge-secrets
+
               key: STATISTICS_SERVICE_PASSWORD
+
         - name: MONGODB_PASSWORD
+
           valueFrom:
+
             secretKeyRef:
+
               name: finedge-secrets
+
               key: MONGODB_PASSWORD
+
 ---
+
 apiVersion: v1
+
 kind: Service
+
 metadata:
+
   name: statistics-service
+
   namespace: finedge
+
 spec:
+
   selector:
+
     app: statistics-service
+
   ports:
+
     - port: 7000
+
 ---
+
 # 7. NOTIFICATION SERVICE
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -294,26 +433,11 @@ spec:
         image: finedge/notification-service:latest
         imagePullPolicy: IfNotPresent
         env:
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+          value: "http://auth:5000/auth"
         - name: SPRING_CONFIG_IMPORT
           value: "optional:configserver:http://config:8888"
         - name: CONFIG_SERVICE_PASSWORD
           valueFrom:
             secretKeyRef:
               name: finedge-secrets
-              key: CONFIG_SERVICE_PASSWORD
-        - name: NOTIFICATION_SERVICE_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: finedge-secrets
-              key: NOTIFICATION_SERVICE_PASSWORD
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: notification-service
-  namespace: finedge
-spec:
-  selector:
-    app: notification-service
-  ports:
-    - port: 8000

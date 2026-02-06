@@ -1,38 +1,34 @@
-security:
-  oauth2:
-    client:
-      clientId: notification-service
-      clientSecret: ${NOTIFICATION_SERVICE_PASSWORD}
-      accessTokenUri: http://auth-service:5000/uaa/oauth/token
-      grant-type: client_credentials
-      scope: server
-
-server:
-  servlet:
-    context-path: /notifications
-  port: 8000
-
-remind:
-  cron: 0 0 0 * * *
-  email:
-    text: "Hey, {0}! We''ve missed you here on PiggyMetrics. It''s time to check your budget statistics.\r\n\r\nCheers,\r\nPiggyMetrics team"
-    subject: PiggyMetrics reminder
-
-backup:
-  cron: 0 0 12 * * *
-  email:
-    text: "Howdy, {0}. Your account backup is ready.\r\n\r\nCheers,\r\nPiggyMetrics team"
-    subject: PiggyMetrics account backup
-    attachment: backup.json
-
 spring:
+  application:
+    name: notification-service
+
+  # OAuth2 Client & Resource Server Configuration (Modern SB3)
+  security:
+    oauth2:
+      client:
+        registration:
+          notification-service: # Matches the ID in your Feign client configuration
+            client-id: notification-service
+            client-secret: ${NOTIFICATION_SERVICE_PASSWORD}
+            authorization-grant-type: client_credentials
+            scope: server
+        provider:
+          notification-service:
+            # accessTokenUri is replaced by token-uri or issuer-uri
+            token-uri: http://auth-service:5000/uaa/oauth/token 
+      resourceserver:
+        jwt:
+          # Required for the service to validate incoming tokens from other services
+          issuer-uri: http://auth-service:5000/uaa/oauth/token
+
   data:
     mongodb:
       host: notification-mongodb
+      port: 27017
+      database: piggymetrics
       username: user
       password: ${MONGODB_PASSWORD}
-      database: piggymetrics
-      port: 27017
+
   mail:
     host: smtp.gmail.com
     port: 465
@@ -42,9 +38,28 @@ spring:
       mail:
         smtp:
           auth: true
+          ssl:
+            enable: true
           socketFactory:
             port: 465
             class: javax.net.ssl.SSLSocketFactory
             fallback: false
-          ssl:
-            enable: true
+
+server:
+  servlet:
+    context-path: /notifications
+  port: 8000
+
+# Custom PiggyMetrics Business Logic
+remind:
+  cron: 0 0 0 * * *
+  email:
+    subject: PiggyMetrics reminder
+    text: "Hey, {0}! We''ve missed you here on PiggyMetrics. It''s time to check your budget statistics.\r\n\r\nCheers,\r\nPiggyMetrics team"
+
+backup:
+  cron: 0 0 12 * * *
+  email:
+    subject: PiggyMetrics account backup
+    text: "Howdy, {0}. Your account backup is ready.\r\n\r\nCheers,\r\nPiggyMetrics team"
+    attachment: backup.json
